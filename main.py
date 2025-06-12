@@ -19,7 +19,7 @@ df["price"] = df["price"].replace(r'[\$,]', '', regex=True).astype(float)
 features = [
     "room_type", "minimum_nights", "number_of_reviews", "reviews_per_month",
     "availability_365", "accommodates", "bedrooms", "bathrooms", "beds",
-    "property_type", "neighbourhood_cleansed", "latitude", "longitude"
+    "property_type", "neighbourhood_cleansed"
 ]
 target = "price"
 
@@ -29,8 +29,6 @@ df = df[(df["price"] > 0) & (df["price"] < 1000)]
 df = df[(df["minimum_nights"] <= 30) & (df["availability_365"] > 0)]
 
 # Nouvelles features
-center_lat, center_long = df["latitude"].mean(), df["longitude"].mean()
-df["distance_to_center"] = np.sqrt((df["latitude"] - center_lat)**2 + (df["longitude"] - center_long)**2)
 df["reviews_per_year"] = df["reviews_per_month"] * 12
 df["bed_per_guest"] = df["beds"] / df["accommodates"]
 df["price_per_accommodate"] = df["price"] / df["accommodates"]
@@ -114,8 +112,6 @@ test_data = pd.DataFrame([
         "beds": 2,
         "property_type": "Apartment",
         "neighbourhood_cleansed": df["neighbourhood_cleansed"].iloc[0],
-        "latitude": df["latitude"].iloc[0],
-        "longitude": df["longitude"].iloc[0]
     },
     {
         "room_type": "Private room",
@@ -129,19 +125,13 @@ test_data = pd.DataFrame([
         "beds": 1,
         "property_type": "House",
         "neighbourhood_cleansed": df["neighbourhood_cleansed"].iloc[1],
-        "latitude": df["latitude"].iloc[1],
-        "longitude": df["longitude"].iloc[1]
     }
 ])
 
 # Recalcul des features sur test
-for col in ["reviews_per_year", "bed_per_guest", "price_per_accommodate", "distance_to_center", "mean_price_by_neighbourhood"]:
-    test_data[col] = 0  # valeur temporaire
-
 test_data["reviews_per_year"] = test_data["reviews_per_month"] * 12
 test_data["bed_per_guest"] = test_data["beds"] / test_data["accommodates"]
 test_data["price_per_accommodate"] = 0  # ignoré à la prédiction
-test_data["distance_to_center"] = np.sqrt((test_data["latitude"] - center_lat)**2 + (test_data["longitude"] - center_long)**2)
 test_data["mean_price_by_neighbourhood"] = test_data["neighbourhood_cleansed"].map(
     df.groupby("neighbourhood_cleansed")["price"].mean()
 )
@@ -159,22 +149,22 @@ for i, price in enumerate(prices_pred, 1):
 # 📊 Analyse SHAP
 # ========================
 
-print("\n📊 Analyse des variables avec SHAP...")
+# print("\n📊 Analyse des variables avec SHAP...")
 
-# Récupération du modèle XGBoost seul
-booster = best_model.named_steps["regressor"]
+# # Récupération du modèle XGBoost seul
+# booster = best_model.named_steps["regressor"]
 
-# Transformation des données test avec le préprocesseur
-X_test_transformed = best_model.named_steps["preprocessing"].transform(X_test)
+# # Transformation des données test avec le préprocesseur
+# X_test_transformed = best_model.named_steps["preprocessing"].transform(X_test)
 
-# Création de l'explainer
-explainer = shap.Explainer(booster)
+# # Création de l'explainer
+# explainer = shap.Explainer(booster)
 
-# Calcul des valeurs SHAP
-shap_values = explainer(X_test_transformed)
+# # Calcul des valeurs SHAP
+# shap_values = explainer(X_test_transformed)
 
-# Récupération des noms de features
-feature_names = best_model.named_steps["preprocessing"].get_feature_names_out()
+# # Récupération des noms de features
+# feature_names = best_model.named_steps["preprocessing"].get_feature_names_out()
 
-# Affichage du résumé
-shap.summary_plot(shap_values, features=X_test_transformed, feature_names=feature_names)
+# # Affichage du résumé
+# shap.summary_plot(shap_values, features=X_test_transformed, feature_names=feature_names)
