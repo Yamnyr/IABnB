@@ -6,32 +6,31 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 import joblib
-from xgboost import XGBRegressor
+from xgboost import XGBRegressor, plot_importance
 from scipy.stats import uniform, randint
-import shap
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Chargement
 df = pd.read_csv("listings.csv")
 df["price"] = df["price"].replace(r'[\$,]', '', regex=True).astype(float)
 
-# Nettoyage
+# Mise à jour de la liste des features avec longitude et latitude
 features = [
-    "room_type", "minimum_nights", "number_of_reviews", "reviews_per_month",
-    "availability_365", "accommodates", "bedrooms", "bathrooms", "beds",
-    "property_type", "neighbourhood_cleansed"
+    "room_type", "minimum_nights", "availability_365",
+    "accommodates", "bedrooms", "bathrooms", "beds",
+    "property_type", "neighbourhood_cleansed",
+    "longitude", "latitude"
 ]
 target = "price"
 
-# Sélection + suppression des NaNs
+# Nettoyage
 df = df[features + [target]].dropna()
 df = df[(df["price"] > 30) & (df["price"] < 1000)]
 df = df[(df["minimum_nights"] <= 30) & (df["availability_365"] > 0)]
 
-# Nouvelles features
-df["reviews_per_year"] = df["reviews_per_month"] * 12
+# Nouvelles features disponibles dès la création
 df["bed_per_guest"] = df["beds"] / df["accommodates"]
-df["price_per_accommodate"] = df["price"] / df["accommodates"]
 df["mean_price_by_neighbourhood"] = df.groupby("neighbourhood_cleansed")["price"].transform("mean")
 
 # Cible log-transformée
@@ -47,7 +46,7 @@ preprocessor = ColumnTransformer(transformers=[
     ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)
 ])
 
-# Pipeline XGBoost
+# Pipeline avec XGBoost
 xgb = XGBRegressor(random_state=42, verbosity=0)
 pipeline = Pipeline(steps=[
     ('preprocessing', preprocessor),
@@ -63,8 +62,10 @@ param_distributions = {
     'regressor__colsample_bytree': uniform(0.7, 0.3)
 }
 
+# Split train/test
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
+# Recherche hyperparamètres
 search = RandomizedSearchCV(
     pipeline,
     param_distributions=param_distributions,
@@ -75,7 +76,6 @@ search = RandomizedSearchCV(
     n_jobs=-1,
     random_state=42
 )
-
 search.fit(X_train, y_train)
 best_model = search.best_estimator_
 
@@ -89,82 +89,115 @@ r2_orig = r2_score(y_test_orig, y_pred)
 rmse = np.sqrt(mean_squared_error(y_test_orig, y_pred))
 mae = mean_absolute_error(y_test_orig, y_pred)
 
-print("\n🔍 Évaluation du modèle optimisé (XGBoost avec features avancées) :")
+print("\n🔍 Évaluation du modèle optimisé (XGBoost) :")
 print(f"R² (log)     : {r2_log:.3f}")
 print(f"R² (réel)    : {r2_orig:.3f}")
 print(f"RMSE         : {rmse:.2f} €")
 print(f"MAE          : {mae:.2f} €")
 
-# Sauvegarde
-joblib.dump(best_model, "airbnb_model_xgb_features.pkl")
+# Sauvegarde du modèle
+joblib.dump(best_model, "airbnb_model_xgb.pkl")
 
-# Test sur exemples
-test_data = pd.DataFrame([
-    {
-        "room_type": "Entire home/apt",
-        "minimum_nights": 3,
-        "number_of_reviews": 120,
-        "reviews_per_month": 1.5,
-        "availability_365": 200,
-        "accommodates": 4,
-        "bedrooms": 2,
-        "bathrooms": 1.5,
-        "beds": 2,
-        "property_type": "Apartment",
-        "neighbourhood_cleansed": df["neighbourhood_cleansed"].iloc[0],
-    },
-    {
-        "room_type": "Private room",
-        "minimum_nights": 1,
-        "number_of_reviews": 45,
-        "reviews_per_month": 0.8,
-        "availability_365": 150,
-        "accommodates": 2,
-        "bedrooms": 1,
-        "bathrooms": 1,
-        "beds": 1,
-        "property_type": "House",
-        "neighbourhood_cleansed": df["neighbourhood_cleansed"].iloc[1],
-    }
-])
+# Test prédiction - ajout longitude et latitude
+test_data = pd.DataFrame([{
+    "room_type": "Entire home/apt",
+    "minimum_nights": 3,
+    "availability_365": 200,
+    "accommodates": 4,
+    "bedrooms": 2,
+    "bathrooms": 1.5,
+    "beds": 2,
+    "property_type": "Apartment",
+    "neighbourhood_cleansed": df["neighbourhood_cleansed"].iloc[0],
+    "longitude": df["longitude"].iloc[0],
+    "latitude": df["latitude"].iloc[0],
+}, {
+    "room_type": "Private room",
+    "minimum_nights": 1,
+    "availability_365": 150,
+    "accommodates": 2,
+    "bedrooms": 1,
+    "bathrooms": 1,
+    "beds": 1,
+    "property_type": "House",
+    "neighbourhood_cleansed": df["neighbourhood_cleansed"].iloc[1],
+    "longitude": df["longitude"].iloc[1],
+    "latitude": df["latitude"].iloc[1],
+}])
 
-# Recalcul des features sur test
-test_data["reviews_per_year"] = test_data["reviews_per_month"] * 12
+# Ajout des features calculées
 test_data["bed_per_guest"] = test_data["beds"] / test_data["accommodates"]
-test_data["price_per_accommodate"] = 0  # ignoré à la prédiction
 test_data["mean_price_by_neighbourhood"] = test_data["neighbourhood_cleansed"].map(
     df.groupby("neighbourhood_cleansed")["price"].mean()
 )
 
 # Réorganiser les colonnes
 test_data = test_data[X.columns]
+
 prices_pred_log = best_model.predict(test_data)
 prices_pred = np.expm1(prices_pred_log)
 
-print("\n💰 Prédictions sur exemples avec features avancées :")
+print("\n💰 Prédictions sur exemples :")
 for i, price in enumerate(prices_pred, 1):
     print(f"Logement {i} : {price:.2f} €")
 
-# ========================
-# 📊 Analyse SHAP
-# ========================
+# Visualisations
 
-# print("\n📊 Analyse des variables avec SHAP...")
+# 1. Distribution des prix (réel et log)
+plt.figure(figsize=(12,5))
+plt.subplot(1,2,1)
+plt.hist(df['price'], bins=50, color='skyblue')
+plt.title("Distribution des prix réels")
+plt.xlabel("Prix (€)")
+plt.ylabel("Nombre d'annonces")
 
-# # Récupération du modèle XGBoost seul
-# booster = best_model.named_steps["regressor"]
+plt.subplot(1,2,2)
+plt.hist(np.log1p(df['price']), bins=50, color='salmon')
+plt.title("Distribution des prix (log-transformés)")
+plt.xlabel("log1p(Prix)")
+plt.ylabel("Nombre d'annonces")
 
-# # Transformation des données test avec le préprocesseur
-# X_test_transformed = best_model.named_steps["preprocessing"].transform(X_test)
+plt.tight_layout()
+plt.show()
 
-# # Création de l'explainer
-# explainer = shap.Explainer(booster)
+# 2. Prix moyen par quartier (top 10)
+mean_price_neigh = df.groupby('neighbourhood_cleansed')['price'].mean().sort_values(ascending=False).head(10)
 
-# # Calcul des valeurs SHAP
-# shap_values = explainer(X_test_transformed)
+plt.figure(figsize=(10,6))
+mean_price_neigh.plot(kind='bar', color='purple')
+plt.title("Top 10 quartiers par prix moyen")
+plt.ylabel("Prix moyen (€)")
+plt.xticks(rotation=45, ha='right')
+plt.show()
 
-# # Récupération des noms de features
-# feature_names = best_model.named_steps["preprocessing"].get_feature_names_out()
+# 3. Relation prix vs nombre de chambres (boxplot)
+plt.figure(figsize=(10,6))
+sns.boxplot(x='bedrooms', y='price', data=df[df['bedrooms'] <= 10])  # limiter outliers extrêmes
+plt.title("Prix en fonction du nombre de chambres")
+plt.ylabel("Prix (€)")
+plt.xlabel("Nombre de chambres")
+plt.show()
 
-# # Affichage du résumé
-# shap.summary_plot(shap_values, features=X_test_transformed, feature_names=feature_names)
+# 4. Corrélation entre variables numériques (heatmap)
+plt.figure(figsize=(10,8))
+corr = df.select_dtypes(include=np.number).corr()
+sns.heatmap(corr, annot=True, cmap='coolwarm', fmt=".2f")
+plt.title("Matrice de corrélation des variables numériques")
+plt.show()
+
+# 5. Importance des variables du modèle XGBoost
+xgb_model = best_model.named_steps["regressor"]
+
+plt.figure(figsize=(10,6))
+plot_importance(xgb_model, max_num_features=10, importance_type='gain', height=0.8)
+plt.title("Importance des 10 variables principales (Gain)")
+plt.show()
+
+# 6. Carte scatter longitude/latitude colorée par prix
+plt.figure(figsize=(12,8))
+plt.scatter(df['longitude'], df['latitude'], c=df['price'], cmap='viridis', alpha=0.4, s=10)
+plt.colorbar(label='Prix (€)')
+plt.title("Répartition spatiale des logements avec prix")
+plt.xlabel("Longitude")
+plt.ylabel("Latitude")
+plt.show()
