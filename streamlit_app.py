@@ -134,8 +134,12 @@ if st.button("💰 Estimer le prix de mon bien", type="primary"):
         price_pred = float(np.expm1(log_pred)[0])
         
         # Affichage des résultats avec plus de détails
+        # Affichage des résultats avec plus de détails
         st.success(f"💰 **Prix estimé : {price_pred:.0f} € par nuit**")
-        
+
+        # 🎈 Animation de ballons
+        st.balloons()
+
         # Calculs additionnels pour donner plus de contexte
         monthly_potential = price_pred * availability_365 / 12
         yearly_potential = price_pred * availability_365
