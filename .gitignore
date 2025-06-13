@@ -1,3 +1,6 @@
 listings.csv
 /listings.csv
 .listings.csv
+airbnb_model_xgb_features.pkl
+/airbnb_model_xgb_features.pkl
+.airbnb_model_xgb.pkl

@@ -25,7 +25,7 @@ target = "price"
 
 # Sélection + suppression des NaNs
 df = df[features + [target]].dropna()
-df = df[(df["price"] > 0) & (df["price"] < 1000)]
+df = df[(df["price"] > 30) & (df["price"] < 1000)]
 df = df[(df["minimum_nights"] <= 30) & (df["availability_365"] > 0)]
 
 # Nouvelles features
