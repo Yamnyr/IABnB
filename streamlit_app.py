@@ -121,14 +121,15 @@ if page == "Estimation":
     model = load_model()
     expected_features = list(model.named_steps["preprocessing"].feature_names_in_)
 
+    # Champs pour le nombre de reviews et notes
+    number_of_reviews = st.number_input("Nombre de reviews", min_value=0, max_value=1000, value=20)
+    review_scores_rating = st.number_input("Note moyenne des reviews", min_value=0.0, max_value=100.0, value=3.0)
+
     if st.button("💰 Estimer le prix de mon bien", type="primary"):
         if beds < accommodates * 0.3:
             st.warning("⚠️ Attention : Le nombre de lits semble faible par rapport à la capacité d'accueil")
         
         # Variables dérivées
-        number_of_reviews = 0
-        reviews_per_month = 0.0
-        reviews_per_year = 0.0
         bed_per_guest = beds / accommodates if accommodates > 0 else 0
         price_per_accommodate = 0
         
@@ -136,7 +137,6 @@ if page == "Estimation":
             "room_type": room_type,
             "minimum_nights": minimum_nights,
             "number_of_reviews": number_of_reviews,
-            "reviews_per_month": reviews_per_month,
             "availability_365": availability_365,
             "accommodates": accommodates,
             "bedrooms": bedrooms,
@@ -144,12 +144,12 @@ if page == "Estimation":
             "beds": beds,
             "property_type": property_type,
             "neighbourhood_cleansed": neighbourhood_cleansed,
-            "reviews_per_year": reviews_per_year,
             "bed_per_guest": bed_per_guest,
             "price_per_accommodate": price_per_accommodate,
             "mean_price_by_neighbourhood": mean_price_by_neighbourhood,
             "longitude": longitude,
-            "latitude": latitude
+            "latitude": latitude,
+            "review_scores_rating": review_scores_rating
         }
 
         try:

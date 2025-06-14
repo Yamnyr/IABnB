@@ -15,12 +15,13 @@ import seaborn as sns
 df = pd.read_csv("listings.csv")
 df["price"] = df["price"].replace(r'[\$,]', '', regex=True).astype(float)
 
-# Mise à jour de la liste des features avec longitude et latitude
+# Mise à jour de la liste des features avec longitude, latitude et reviews
 features = [
     "room_type", "minimum_nights", "availability_365",
     "accommodates", "bedrooms", "bathrooms", "beds",
     "property_type", "neighbourhood_cleansed",
-    "longitude", "latitude"
+    "longitude", "latitude",
+    "number_of_reviews", "review_scores_rating"
 ]
 target = "price"
 
@@ -98,7 +99,7 @@ print(f"MAE          : {mae:.2f} €")
 # Sauvegarde du modèle
 joblib.dump(best_model, "airbnb_model_xgb.pkl")
 
-# Test prédiction - ajout longitude et latitude
+# Test prédiction - ajout longitude, latitude et reviews
 test_data = pd.DataFrame([{
     "room_type": "Entire home/apt",
     "minimum_nights": 3,
@@ -111,6 +112,8 @@ test_data = pd.DataFrame([{
     "neighbourhood_cleansed": df["neighbourhood_cleansed"].iloc[0],
     "longitude": df["longitude"].iloc[0],
     "latitude": df["latitude"].iloc[0],
+    "number_of_reviews": df["number_of_reviews"].iloc[0],
+    "review_scores_rating": df["review_scores_rating"].iloc[0],
 }, {
     "room_type": "Private room",
     "minimum_nights": 1,
@@ -123,6 +126,8 @@ test_data = pd.DataFrame([{
     "neighbourhood_cleansed": df["neighbourhood_cleansed"].iloc[1],
     "longitude": df["longitude"].iloc[1],
     "latitude": df["latitude"].iloc[1],
+    "number_of_reviews": df["number_of_reviews"].iloc[1],
+    "review_scores_rating": df["review_scores_rating"].iloc[1],
 }])
 
 # Ajout des features calculées
