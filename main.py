@@ -10,6 +10,7 @@ from xgboost import XGBRegressor, plot_importance
 from scipy.stats import uniform, randint
 import matplotlib.pyplot as plt
 import seaborn as sns
+import shap
 
 # Chargement
 df = pd.read_csv("listings.csv")
@@ -79,6 +80,19 @@ search = RandomizedSearchCV(
 )
 search.fit(X_train, y_train)
 best_model = search.best_estimator_
+
+# Explications avec SHAP
+X_train_transformed = best_model.named_steps['preprocessing'].transform(X_train)
+xgb_model = best_model.named_steps['regressor']
+
+explainer = shap.TreeExplainer(xgb_model)
+shap_values = explainer.shap_values(X_train_transformed)
+
+shap.summary_plot(
+    shap_values, 
+    X_train_transformed, 
+    feature_names=best_model.named_steps['preprocessing'].get_feature_names_out()
+)
 
 # Évaluation
 y_pred_log = best_model.predict(X_test)
@@ -175,34 +189,15 @@ plt.ylabel("Prix moyen (€)")
 plt.xticks(rotation=45, ha='right')
 plt.show()
 
-# 3. Relation prix vs nombre de chambres (boxplot)
-plt.figure(figsize=(10,6))
-sns.boxplot(x='bedrooms', y='price', data=df[df['bedrooms'] <= 10])  # limiter outliers extrêmes
-plt.title("Prix en fonction du nombre de chambres")
-plt.ylabel("Prix (€)")
-plt.xlabel("Nombre de chambres")
-plt.show()
-
-# 4. Corrélation entre variables numériques (heatmap)
+# 3. Corrélation entre variables numériques (heatmap)
 plt.figure(figsize=(10,8))
 corr = df.select_dtypes(include=np.number).corr()
 sns.heatmap(corr, annot=True, cmap='coolwarm', fmt=".2f")
 plt.title("Matrice de corrélation des variables numériques")
 plt.show()
 
-# 5. Importance des variables du modèle XGBoost
-xgb_model = best_model.named_steps["regressor"]
-
+# 4. Importance des variables du modèle XGBoost
 plt.figure(figsize=(10,6))
 plot_importance(xgb_model, max_num_features=10, importance_type='gain', height=0.8)
 plt.title("Importance des 10 variables principales (Gain)")
-plt.show()
-
-# 6. Carte scatter longitude/latitude colorée par prix
-plt.figure(figsize=(12,8))
-plt.scatter(df['longitude'], df['latitude'], c=df['price'], cmap='viridis', alpha=0.4, s=10)
-plt.colorbar(label='Prix (€)')
-plt.title("Répartition spatiale des logements avec prix")
-plt.xlabel("Longitude")
-plt.ylabel("Latitude")
 plt.show()

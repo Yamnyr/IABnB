@@ -4,6 +4,7 @@ import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
+from xgboost import plot_importance
 
 # Configuration de la page
 st.set_page_config(
@@ -177,6 +178,7 @@ if page == "Estimation":
         except Exception as e:
             st.error(f"Erreur lors de la prédiction : {str(e)}")
             st.info("Vérifiez que tous les champs sont correctement remplis.")
+
 else:
     st.title("📊 Analyse exploratoire des données Airbnb")
 
@@ -197,49 +199,40 @@ else:
     # 2. Prix moyen par quartier (top 10)
     st.subheader("Top 10 quartiers par prix moyen")
     mean_price_neigh = df.groupby('neighbourhood_cleansed')['price'].mean().sort_values(ascending=False).head(10)
-    fig2, ax2 = plt.subplots(figsize=(10,6))
+    fig2, ax2 = plt.subplots(figsize=(10, 6))
     mean_price_neigh.plot(kind='bar', color='purple', ax=ax2)
     ax2.set_title("Top 10 quartiers par prix moyen")
     ax2.set_ylabel("Prix moyen (€)")
     ax2.set_xticklabels(ax2.get_xticklabels(), rotation=45, ha='right')
     st.pyplot(fig2)
 
-    # 3. Relation prix vs nombre de chambres (boxplot)
-    st.subheader("Prix en fonction du nombre de chambres")
-    fig3, ax3 = plt.subplots(figsize=(10,6))
-    sns.boxplot(x='bedrooms', y='price', data=df[df['bedrooms'] <= 10], ax=ax3)
-    ax3.set_title("Prix en fonction du nombre de chambres")
-    ax3.set_ylabel("Prix (€)")
-    ax3.set_xlabel("Nombre de chambres")
-    st.pyplot(fig3)
-
-    # 4. Corrélation entre variables numériques (heatmap)
+    # 3. Matrice de corrélation des variables numériques
     st.subheader("Matrice de corrélation des variables numériques")
     numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
-    fig4, ax4 = plt.subplots(figsize=(10,8))
-    sns.heatmap(df[numeric_cols].corr(), annot=True, fmt=".2f", cmap="coolwarm", ax=ax4)
-    ax4.set_title("Matrice de corrélation des variables numériques")
-    st.pyplot(fig4)
+    fig3, ax3 = plt.subplots(figsize=(10, 8))
+    sns.heatmap(df[numeric_cols].corr(), annot=True, fmt=".2f", cmap="coolwarm", ax=ax3)
+    ax3.set_title("Matrice de corrélation des variables numériques")
+    st.pyplot(fig3)
 
-    # 5. Importance des variables du modèle XGBoost
+    # 4. Importance des variables du modèle XGBoost
     st.subheader("Importance des variables du modèle XGBoost")
     try:
         model = joblib.load("airbnb_model_xgb.pkl")
         xgb_model = model.named_steps["regressor"]
-        from xgboost import plot_importance
-        fig5, ax5 = plt.subplots(figsize=(10,6))
-        plot_importance(xgb_model, max_num_features=10, importance_type='gain', height=0.8, ax=ax5)
-        ax5.set_title("Importance des 10 variables principales (Gain)")
-        st.pyplot(fig5)
+        fig4, ax4 = plt.subplots(figsize=(10, 6))
+        plot_importance(xgb_model, max_num_features=10, importance_type='gain', height=0.8, ax=ax4)
+        ax4.set_title("Importance des 10 variables principales (Gain)")
+        st.pyplot(fig4)
     except Exception as e:
         st.info("Impossible d'afficher l'importance des variables : " + str(e))
 
-    # 6. Carte scatter longitude/latitude colorée par prix
+    # Bonus : Répartition spatiale (longitude/latitude) colorée par prix
     st.subheader("Répartition spatiale des logements avec prix")
-    fig6, ax6 = plt.subplots(figsize=(12,8))
-    sc = ax6.scatter(df['longitude'], df['latitude'], c=df['price'], cmap='viridis', alpha=0.4, s=10)
-    plt.colorbar(sc, ax=ax6, label='Prix (€)')
-    ax6.set_title("Répartition spatiale des logements avec prix")
-    ax6.set_xlabel("Longitude")
-    ax6.set_ylabel("Latitude")
-    st.pyplot(fig6)
+    fig5, ax5 = plt.subplots(figsize=(12, 8))
+    sc = ax5.scatter(df['longitude'], df['latitude'], c=df['price'], cmap='viridis', alpha=0.4, s=10)
+    plt.colorbar(sc, ax=ax5, label='Prix (€)')
+    ax5.set_title("Répartition spatiale des logements avec prix")
+    ax5.set_xlabel("Longitude")
+    ax5.set_ylabel("Latitude")
+    st.pyplot(fig5)
+
